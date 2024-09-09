@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+
+# move attachments
+
+BU_DIR=bu
+TW_EXTERNAL_FILE_ROOT='$:/_/config/ExternalFileRoot'
+
+function _help {
+cat <<END
+SYNPOSIS
+basname $0 [-b] <tw-file.html>
+  
+  -b|--backup [bu-dir-name]:  make backup before processing input html file
+                              default backup dir is: $BU_DIR
+
+  directory name, where the files are moved, is taken from designated tiddler
+    $:/_/config/ExternalFileRoot 
+  which text field shall contain nothing but the file root directory name
+
+  NOTE: 
+    The script also reads template $:/core/templates/canonical-uri-external-image.
+    Make sure that:
+     - the tiddler exists
+     - modified as following:
+       ./{{$:/_/config/ExternalFilesRoot}}/<$view field="title" format="doubleurlencoded"/>
+    ExternalFileRoot is expected to be in same directory, as TW HTML input file
+END
+}
+
+function _get_root_dir() {
+  #get external file root directory from tiddlywiki config 
+  tmp=$(mktemp)
+  tiddlywiki --load  "$1" --output $(dirname $tmp) --save "$TW_EXTERNAL_FILE_ROOT" $(basename $tmp) 
+  if [ ! -f "$tmp.tid" ]; then
+    echo "Check wether tiddler $TW_EXTERNAL_FILE_ROOT exist in $1" tiddlywiki && exit
+  fi
+  echo $(tail "$tmp.tid" -n1)
+}
+
+POSITIONAL_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case $1 in 
+    -h|--help)
+      _help
+      exit
+      ;;
+    -b|--backup)
+      BU_MODE=1
+      shift
+      if [ -n "$1" ] && [ ! "${1:0:1}" == "-" ]; then
+        BU_DIR=$1
+        shift
+      fi
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+#the first positional argument is TW html input file
+TW_INPUT_FILE="${POSITIONAL_ARGS[0]}"
+
+if [ -z "$TW_INPUT_FILE" ]; then
+  printf  %"s\n\n" "No Tiddlywiki html file speciied!"
+  _help
+  exit
+elif [ ! -f "$TW_INPUT_FILE" ]; then
+  printf %"s\n\n" "file $TW_INPUT_FILE does not exist!"
+  _help
+  exit
+fi
+
+EXTERNAL_FILE_ROOT="$(_get_root_dir "$TW_INPUT_FILE")"
+EXTERNAL_FILE_ROOT_PATH=$(dirname $TW_INPUT_FILE)/$EXTERNAL_FILE_ROOT
+
+if [ -z "$EXTERNAL_FILE_ROOT" ]; then
+  echo "unable to obtain external file root dir name from $TW_INPUT_FILE Tiddlywiki file"
+  exit
+fi
+
+#create backup
+if [ -n $BU_MODE ]; then
+  #check if dir exists
+  if [ ! -d "$BU_DIR" ]; then
+    BU_DIR=$(dirname $TW_INPUT_FILE)/$(basename $BU_DIR)
+    mkdir -p "$BU_DIR"
+  fi
+
+  bu_fname="$(date +%Y%m%d_%H%M%S)_$(basename $TW_INPUT_FILE)"
+  cp -a "$TW_INPUT_FILE" "$BU_DIR/$bu_fname"
+  echo "created new backup $BU_DIR/$bu_fname"
+fi
+
+#make snapshot of external file dir BEFORE processing image files
+SN_BEFORE=$(find $EXTERNAL_FILE_ROOT_PATH -type f)
+
+img_filter='[!is[system]is[image]!has[_canonical_uri]]'
+tiddlywiki --load "$TW_INPUT_FILE" \
+           --output "$EXTERNAL_FILE_ROOT" \
+           --save "$img_filter"  "[encodeuricomponent[]]" \
+           --setfield "$img_filter" text "" text/plain \
+           --setfield "$img_filter" _canonical_uri $:/core/templates/canonical-uri-external-image text/plain
+           
+# remove .meta files
+find "$EXTERNAL_FILE_ROOT_PATH" -type f -name '*.meta' -exec rm {} \;
+
+#show new files
+diff <(echo $SN_BEFORE) <(find $EXTERNAL_FILE_ROOT -type f)

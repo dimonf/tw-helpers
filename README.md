@@ -1,7 +1,7 @@
 # tw-helpers
 scripts to facilitate work with tiddlywiki.
 
-## json-files.sh
+## tid-from-files
 
 Tiddlywiki with no extensions writes to hard disk, but is not aware of updates made 
   to the files from outside of TW. Same goes for binary files, attachments. If the 
@@ -13,7 +13,7 @@ Tiddlywiki with no extensions writes to hard disk, but is not aware of updates m
     - any directory of choice for single file TW, served (in my case) vi local webdav.
   - run the script, feeding it with file names, like:
     ```bash
-    json-files.sh files/* > ~/Downloads/files.json
+    tid-from-files files/* > ~/Downloads/files.json
     ```
     Output file comprises tiddlers for all files in source dir, in example above, 
     files/*

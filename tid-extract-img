@@ -37,6 +37,11 @@ function _get_root_dir() {
   echo $(tail "$tmp.tid" -n1)
 }
 
+function _get_dir_ls() {
+  echo "$(find $1 -type f)"
+}
+
+
 POSITIONAL_ARGS=()
 while [[ $# -gt 0 ]]; do
   case $1 in 
@@ -94,17 +99,38 @@ if [ -n $BU_MODE ]; then
 fi
 
 #make snapshot of external file dir BEFORE processing image files
-SN_BEFORE=$(find $EXTERNAL_FILE_ROOT_PATH -type f)
+SN_BEFORE=$(_get_dir_ls $EXTERNAL_FILE_ROOT_PATH)
 
+tmp=$(mktemp)
 img_filter='[!is[system]is[image]!has[_canonical_uri]]'
 tiddlywiki --load "$TW_INPUT_FILE" \
            --output "$EXTERNAL_FILE_ROOT" \
            --save "$img_filter"  "[encodeuricomponent[]]" \
            --setfield "$img_filter" text "" text/plain \
-           --setfield "$img_filter" _canonical_uri $:/core/templates/canonical-uri-external-image text/plain
-           
+           --setfield "$img_filter" _canonical_uri \
+              $:/core/templates/canonical-uri-external-image text/plain \
+           --output $(dirname $tmp) \
+           --rendertiddler $:/core/save/all $(basename $tmp) text/plain
+#TODO: --save command append the filename with proper extension, if necessary.
+#So, if the tiddler's title does not end with proper extension at execution time,
+# the file path, recorded into _canonical_uri, will be incomplete. This
+# issue shall be addressed in the template, I suppose
+
+#there are 2 things that might changed: 
+# - $TW_INPUT_FILE != $tmp
+# - content of $EXTERNAL_FILE_ROOT_PATH might have changed
+if [ "$(cat $TW_INPUT_FILE|md5sum)" != "$(cat $tmp|md5sum)" ]; then
+  mv $tmp "$TW_INPUT_FILE"
+fi
+
 # remove .meta files
 find "$EXTERNAL_FILE_ROOT_PATH" -type f -name '*.meta' -exec rm {} \;
 
 #show new files
-diff <(echo $SN_BEFORE) <(find $EXTERNAL_FILE_ROOT -type f)
+SN_AFTER=$(_get_dir_ls $EXTERNAL_FILE_ROOT_PATH)
+#echo "$SN_BEFORE"|wc -l
+#if [ ! "$(echo "$SN_BEFORE"|md5sum)" == "$(echo "$SN_AFTER"|md5sum)" ]; then
+if [ "$SN_BEFORE" != "$SN_AFTER" ]; then
+  echo 'OLD<        >NEW'
+  diff <(echo "$SN_BEFORE") <(echo "$SN_AFTER")
+fi

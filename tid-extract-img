@@ -3,12 +3,12 @@
 # move attachments
 
 BU_DIR=bu
-TW_EXTERNAL_FILE_ROOT='$:/_/config/ExternalFileRoot'
+TW_EXTERNAL_FILES_ROOT='$:/_/config/ExternalFilesRoot'
 
 function _help {
 cat <<END
 SYNPOSIS
-basname $0 [-b] <tw-file.html>
+`basename $0` [-b] <tw-file.html>
   
   -b|--backup [bu-dir-name]:  make backup before processing input html file
                               default backup dir is: $BU_DIR
@@ -30,9 +30,10 @@ END
 function _get_root_dir() {
   #get external file root directory from tiddlywiki config 
   tmp=$(mktemp)
-  tiddlywiki --load  "$1" --output $(dirname $tmp) --save "$TW_EXTERNAL_FILE_ROOT" $(basename $tmp) 
+  tiddlywiki --load  "$1" --output $(dirname $tmp) --save "$TW_EXTERNAL_FILES_ROOT" $(basename $tmp) 
   if [ ! -f "$tmp.tid" ]; then
-    echo "Check wether tiddler $TW_EXTERNAL_FILE_ROOT exist in $1" tiddlywiki && exit
+    echo "Check wether tiddler $TW_EXTERNAL_FILES_ROOT exist in $1" tiddlywiki
+    exit
   fi
   echo $(tail "$tmp.tid" -n1)
 }
@@ -77,10 +78,10 @@ elif [ ! -f "$TW_INPUT_FILE" ]; then
   exit
 fi
 
-EXTERNAL_FILE_ROOT="$(_get_root_dir "$TW_INPUT_FILE")"
-EXTERNAL_FILE_ROOT_PATH=$(dirname $TW_INPUT_FILE)/$EXTERNAL_FILE_ROOT
+EXTERNAL_FILES_ROOT="$(_get_root_dir "$TW_INPUT_FILE")"
+EXTERNAL_FILES_ROOT_PATH=$(dirname $TW_INPUT_FILE)/$EXTERNAL_FILES_ROOT
 
-if [ -z "$EXTERNAL_FILE_ROOT" ]; then
+if [ -z "$EXTERNAL_FILES_ROOT" ]; then
   echo "unable to obtain external file root dir name from $TW_INPUT_FILE Tiddlywiki file"
   exit
 fi
@@ -99,12 +100,12 @@ if [ -n $BU_MODE ]; then
 fi
 
 #make snapshot of external file dir BEFORE processing image files
-SN_BEFORE=$(_get_dir_ls $EXTERNAL_FILE_ROOT_PATH)
+SN_BEFORE=$(_get_dir_ls $EXTERNAL_FILES_ROOT_PATH)
 
 tmp=$(mktemp)
 img_filter='[!is[system]is[image]!has[_canonical_uri]]'
 tiddlywiki --load "$TW_INPUT_FILE" \
-           --output "$EXTERNAL_FILE_ROOT" \
+           --output "$EXTERNAL_FILES_ROOT" \
            --save "$img_filter"  "[encodeuricomponent[]]" \
            --setfield "$img_filter" text "" text/plain \
            --setfield "$img_filter" _canonical_uri \
@@ -118,16 +119,16 @@ tiddlywiki --load "$TW_INPUT_FILE" \
 
 #there are 2 things that might changed: 
 # - $TW_INPUT_FILE != $tmp
-# - content of $EXTERNAL_FILE_ROOT_PATH might have changed
+# - content of $EXTERNAL_FILES_ROOT_PATH might have changed
 if [ "$(cat $TW_INPUT_FILE|md5sum)" != "$(cat $tmp|md5sum)" ]; then
   mv $tmp "$TW_INPUT_FILE"
 fi
 
 # remove .meta files
-find "$EXTERNAL_FILE_ROOT_PATH" -type f -name '*.meta' -exec rm {} \;
+find "$EXTERNAL_FILES_ROOT_PATH" -type f -name '*.meta' -exec rm {} \;
 
 #show new files
-SN_AFTER=$(_get_dir_ls $EXTERNAL_FILE_ROOT_PATH)
+SN_AFTER=$(_get_dir_ls $EXTERNAL_FILES_ROOT_PATH)
 #echo "$SN_BEFORE"|wc -l
 #if [ ! "$(echo "$SN_BEFORE"|md5sum)" == "$(echo "$SN_AFTER"|md5sum)" ]; then
 if [ "$SN_BEFORE" != "$SN_AFTER" ]; then

@@ -4,9 +4,8 @@ scripts to facilitate work with tiddlywiki.
 ## tid-from-files
 
 Tiddlywiki with no extensions writes to hard disk, but is not aware of updates made 
-  to the files from outside of TW. Same goes for binary files, attachments. If the 
-  mountain won't come to Muhammad then Muhammad must come to the mountain. Script is
-  part of these procedure:
+  to the files from outside of TW. Same goes for binary files, attachments.
+  This script is part of these workflow:
   - copy files to selected directory 
     - 'files' for nodejs version, 
     (https://tiddlywiki.com/prerelease/static/Using%2520the%2520integrated%2520static%2520file%2520server.html)
